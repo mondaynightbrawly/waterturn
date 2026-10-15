@@ -58,3 +58,13 @@ Alternatively, run `npm ci` and `npm run build`, then upload the **contents of `
 ## Limitations
 
 Concurrent edits from a stale tab are rejected; reload that tab before editing again. No cloud sync or permanent storage guarantee. Date/time inputs use device local time; timestamps are absolute. Device-clock jumps warn without rewriting records. Desktop drag/drop, recurring plans, photos, maps, physical controls, and reliable background notifications are excluded. Text notes and basic filters are supported; seasons currently use calendar-year boundaries. Notifications use one configurable warning threshold plus the target-time reminder.
+
+## FarmOS expansion planning
+
+The proposed FarmOS expansion is in Phase 0 (assessment/design). No new modules, database migration, authentication, or production deployment are included in that assessment.
+
+- [Existing application assessment](docs/farmos/ASSESSMENT.md)
+- [Architecture, relational schema, permissions, migration, navigation, and hosting options](docs/farmos/ARCHITECTURE.md)
+- [Living roadmap and proposed first milestone](docs/farmos/ROADMAP.md)
+
+The recommended first implementation is M1A: a local-only FarmOS shell, shared farm/property/field records, and daily tasks/activity history, while preserving irrigation. Its scope awaits agreement.
