@@ -30,4 +30,4 @@ Known limitations: notifications require the app to be running and are not relia
 
 Local testing and future manual GitHub Pages deployment: see [README.md](README.md). Run `npm run dev` for development; use `npm run build && npm run preview -- --port 4173` to test production caching. Deploy only `dist/` after approval.
 
-PR creation prerequisite: the remote currently advertises no refs, so there is no `main` base commit for a GitHub pull request. This file is the prepared PR description; establishing the base branch is separate from merging or deployment.
+Initial publication: the repository originally had no remote branches. The user approved uploading this reviewed development version as the initial `main` branch. No pull request is needed for that initial upload. Future changes can use pull requests against `main`. Website deployment remains manual and has not been authorized.

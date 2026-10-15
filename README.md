@@ -35,7 +35,7 @@ Production builds register a service worker to cache local assets. After the fir
 
 The manual workflow is `.github/workflows/pages.yml`. Pushing changes does not publish the site.
 
-1. Review the development branch. This repository currently has no remote commits. When you approve publishing this initial version as the repository's main code, push it to `main` from this checkout with `git push origin development/waterturn-mvp:main`. This creates the initial main branch; it is not a pull request or a merge. Do not run this until you approve that action. Later changes can use normal pull requests.
+1. This initial version is approved for upload to `main`. Once it is on GitHub, use normal development branches and pull requests for future changes. Uploading source does not deploy the website.
 2. On GitHub, open **Settings → Pages** and choose **GitHub Actions** as the build source.
 3. Open **Actions → Publish WaterTurn to GitHub Pages → Run workflow**, select `main`, and run it. This is the explicit publication step. Build and automated tests must pass before deployment.
 4. After the workflow succeeds, use the URL shown by its deployment job. For this repository, the expected default address is `https://mondaynightbrawly.github.io/waterturn/`; it is not live until deployment succeeds.

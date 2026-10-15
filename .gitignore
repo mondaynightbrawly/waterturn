@@ -4,3 +4,11 @@ test-results/
 playwright-report/
 
 *.tsbuildinfo
+
+# Local credentials and environment overrides
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.zip
