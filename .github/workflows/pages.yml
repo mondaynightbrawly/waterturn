@@ -1,0 +1,46 @@
+name: Publish WaterTurn to GitHub Pages
+
+# Publishing is manual. Pushing code never deploys it automatically.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Test production workflows
+        run: |
+          export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$(node --input-type=module -e 'import { chromium } from "playwright"; console.log(chromium.executablePath())')"
+          npm run test:e2e
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy reviewed build
+        id: deployment
+        uses: actions/deploy-pages@v4
