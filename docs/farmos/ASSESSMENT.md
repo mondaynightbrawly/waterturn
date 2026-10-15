@@ -6,17 +6,17 @@ Assessment date: October 15, 2026. Baseline commit: `d57dcfd`. Phase 0 is docume
 
 WaterTurn is a single-user, local-first irrigation PWA. React 19 and TypeScript render a Vite 6 application. Production dependencies are React, React DOM, Dexie 4, and Lucide icons. Styling is plain CSS, not Tailwind. Vite PWA/Workbox generates an application-shell service worker. No backend, API client, authentication, organization membership, employee accounts, or role enforcement exists.
 
-| Area | Evidence and behavior | Expansion implication |
-| --- | --- | --- |
-| UI | `src/main.tsx` contains five screens, navigation, application state, notifications, and persistence coordination. `src/Editor.tsx` handles field/source/set/session forms. | Extract feature modules incrementally; do not rewrite timers or replace the UI framework. |
-| Domain | `src/model.ts` contains typed fields, sets, sources, sessions/settings, validation, conflicts, timers, median suggestions, and CSV export. | Reuse behavior through an irrigation service; introduce shared entities without duplicating fields. |
-| Persistence | `src/storage.ts` uses Dexie database `waterturn`, IndexedDB version 1, table `state`, key `farm`; the entire schemaVersion-1 farm document is saved in one transaction. | Good small single-user storage; unsuitable as the shared server database. Whole-document saves grow expensive with inventory, activity, and attachments. |
-| Concurrency | Saves compare the last loaded whole document with the stored document and reject stale-tab edits. | Preserves local edits across tabs, but provides neither distributed transactions nor multi-user synchronization. |
-| Offline | Production service worker precaches the app shell. IndexedDB records remain on the browser. | Preserve offline irrigation; service-worker caching alone does not synchronize records. |
-| Deployment | `.github/workflows/pages.yml` has only `workflow_dispatch`. Node 24 builds/tests; Pages uploads `dist/`. Vite base is relative. | Static frontend remains viable. Pages cannot securely execute private APIs, hold server secrets, or serve as a multi-user database. No deployment triggered during this audit. |
-| Privacy | No runtime farm-data fetch/upload, tracking, external accounts, or location permissions found in application source. Browser notifications require opt-in. | Keep synthetic test data and explicit opt-in for future external connections. Local data is not protected from other users of the same browser profile. |
-| Backups | JSON version checking, reference/time validation, preview, confirmed full replacement, atomic save; CSV history export. | Preserve version-1 importer and add explicit migration/export paths; never silently replace a backup format. |
-| Demo | `src/demo.ts` constructs fictional fields and sessions on request. | Reuse for module demonstrations; add synthetic FarmOS fixtures separately. |
+| Area        | Evidence and behavior                                                                                                                                                      | Expansion implication                                                                                                                                                          |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| UI          | `src/main.tsx` contains five screens, navigation, application state, notifications, and persistence coordination. `src/Editor.tsx` handles field/source/set/session forms. | Extract feature modules incrementally; do not rewrite timers or replace the UI framework.                                                                                      |
+| Domain      | `src/model.ts` contains typed fields, sets, sources, sessions/settings, validation, conflicts, timers, median suggestions, and CSV export.                                 | Reuse behavior through an irrigation service; introduce shared entities without duplicating fields.                                                                            |
+| Persistence | `src/storage.ts` uses Dexie database `waterturn`, IndexedDB version 1, table `state`, key `farm`; the entire schemaVersion-1 farm document is saved in one transaction.    | Good small single-user storage; unsuitable as the shared server database. Whole-document saves grow expensive with inventory, activity, and attachments.                       |
+| Concurrency | Saves compare the last loaded whole document with the stored document and reject stale-tab edits.                                                                          | Preserves local edits across tabs, but provides neither distributed transactions nor multi-user synchronization.                                                               |
+| Offline     | Production service worker precaches the app shell. IndexedDB records remain on the browser.                                                                                | Preserve offline irrigation; service-worker caching alone does not synchronize records.                                                                                        |
+| Deployment  | `.github/workflows/pages.yml` has only `workflow_dispatch`. Node 24 builds/tests; Pages uploads `dist/`. Vite base is relative.                                            | Static frontend remains viable. Pages cannot securely execute private APIs, hold server secrets, or serve as a multi-user database. No deployment triggered during this audit. |
+| Privacy     | No runtime farm-data fetch/upload, tracking, external accounts, or location permissions found in application source. Browser notifications require opt-in.                 | Keep synthetic test data and explicit opt-in for future external connections. Local data is not protected from other users of the same browser profile.                        |
+| Backups     | JSON version checking, reference/time validation, preview, confirmed full replacement, atomic save; CSV history export.                                                    | Preserve version-1 importer and add explicit migration/export paths; never silently replace a backup format.                                                                   |
+| Demo        | `src/demo.ts` constructs fictional fields and sessions on request.                                                                                                         | Reuse for module demonstrations; add synthetic FarmOS fixtures separately.                                                                                                     |
 
 ## Working irrigation features to preserve
 
@@ -41,19 +41,19 @@ Baseline validation results are recorded in ROADMAP.md. There is no measured lin
 
 ## Expansion risks and recommended controls
 
-| Risk | Required response |
-| --- | --- |
-| A large central screen/form couples unrelated modules | Extract app shell, irrigation screens, repository interface, and form components in small tested changes. |
-| New module replaces existing field IDs | Keep IDs and historical snapshots; shared fields must remain the same records referenced by irrigation. |
-| New database/version destroys a browser farm | Backup-first, additive versioned migration, rollback plan, legacy importer, counts and duration reconciliation. |
-| UUID assumption breaks demo IDs (`f0`, `s00`, etc.) or imported IDs | Retain legacy strings via explicit ID mapping; never blindly cast imported IDs to UUID. |
-| Overdue active water is treated as finished | Preserve manual control; forecast occupancy is uncertain until a stop is recorded. Review conflict edge cases before expanding scheduling. |
-| Static UI roles are mistaken for security | No sensitive multi-user trial until real authentication, backend policy enforcement, and direct API authorization tests pass. |
-| A module writes another module's inventory/cost records twice | Transactional commands, idempotency keys, canonical cost postings, and links to original source events. |
-| A shared activity ledger becomes a second editable source of truth | Write canonical module record and activity entry together. Read projections may be rebuilt; never create independent duplicate costs. |
-| Imported data becomes a generic JSON dumping ground | Central per-entity schemas, explicit units, typed references, size limits and staged validation. |
-| Attachments inflate backups or expose documents | Separate private object storage and metadata when approved; do not include private attachments in static assets. |
-| PWA update or hostname change strands local data | Keep origin/database name stable, test old cached clients against migrations, and provide export/import across origins. |
+| Risk                                                                | Required response                                                                                                                          |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| A large central screen/form couples unrelated modules               | Extract app shell, irrigation screens, repository interface, and form components in small tested changes.                                  |
+| New module replaces existing field IDs                              | Keep IDs and historical snapshots; shared fields must remain the same records referenced by irrigation.                                    |
+| New database/version destroys a browser farm                        | Backup-first, additive versioned migration, rollback plan, legacy importer, counts and duration reconciliation.                            |
+| UUID assumption breaks demo IDs (`f0`, `s00`, etc.) or imported IDs | Retain legacy strings via explicit ID mapping; never blindly cast imported IDs to UUID.                                                    |
+| Overdue active water is treated as finished                         | Preserve manual control; forecast occupancy is uncertain until a stop is recorded. Review conflict edge cases before expanding scheduling. |
+| Static UI roles are mistaken for security                           | No sensitive multi-user trial until real authentication, backend policy enforcement, and direct API authorization tests pass.              |
+| A module writes another module's inventory/cost records twice       | Transactional commands, idempotency keys, canonical cost postings, and links to original source events.                                    |
+| A shared activity ledger becomes a second editable source of truth  | Write canonical module record and activity entry together. Read projections may be rebuilt; never create independent duplicate costs.      |
+| Imported data becomes a generic JSON dumping ground                 | Central per-entity schemas, explicit units, typed references, size limits and staged validation.                                           |
+| Attachments inflate backups or expose documents                     | Separate private object storage and metadata when approved; do not include private attachments in static assets.                           |
+| PWA update or hostname change strands local data                    | Keep origin/database name stable, test old cached clients against migrations, and provide export/import across origins.                    |
 
 ## Recommendation
 

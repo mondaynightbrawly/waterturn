@@ -1,6 +1,8 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "tests",
+  testIgnore:
+    process.env.FARMOS_BACKEND_TESTS === "1" ? [] : ["**/sync.spec.ts"],
   use: {
     launchOptions: {
       executablePath:

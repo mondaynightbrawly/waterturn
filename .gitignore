@@ -12,3 +12,6 @@ playwright-report/
 *.pem
 *.key
 *.zip
+
+.local/
+*.dump

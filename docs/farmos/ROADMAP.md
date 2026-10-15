@@ -1,18 +1,18 @@
 # WaterTurn FarmOS living roadmap
 
-Updated October 15, 2026. Owner: project owner; implementation decisions require review against the product brief. This roadmap refines the supplied phases into smaller, testable releases. Changes to scope, status, or assumptions belong in this document with the associated review.
+Updated October 15, 2026. Owner: project owner; implementation decisions require review against the product brief. The user subsequently approved continued development through Phase 7 and selected local PostgreSQL/API with no paid services. This roadmap refines the supplied phases into smaller, testable releases. Changes to scope, status, or assumptions belong in this document with the associated review.
 
 ## Status and decisions
 
-| Item | Status | Evidence / decision |
-| --- | --- | --- |
-| Phase 0: repository audit | Completed | ASSESSMENT.md, baseline `d57dcfd` |
-| Phase 0: architecture and relational design | Proposed for review | ARCHITECTURE.md; no schema migration executed |
-| Irrigation regression baseline | Passed October 15, 2026 | Production TypeScript/Vite/PWA build; 19 unit/component/storage tests; 2 Chromium browser workflows |
-| FarmOS implementation | Not started | No first implementation milestone agreed yet |
-| Backend/auth provider | Deferred | Compare options at private-data gate; no service provisioned |
-| Production deployment | Unchanged by Phase 0 | Manual workflow retained; no workflow dispatched or Pages setting modified |
-| Real farm data / paid services | Out of scope for initial experiment | Synthetic fixtures only; approval needed before connecting outside systems |
+| Item                                        | Status                                            | Evidence / decision                                                                                 |
+| ------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Phase 0: repository audit                   | Completed                                         | ASSESSMENT.md, baseline `d57dcfd`                                                                   |
+| Phase 0: architecture and relational design | Proposed for review                               | ARCHITECTURE.md; logical design retained, local SQL pilot migrated (see PROGRESS.md)                |
+| Irrigation regression baseline              | Passed October 15, 2026                           | Production TypeScript/Vite/PWA build; 19 unit/component/storage tests; 2 Chromium browser workflows |
+| FarmOS implementation                       | Local development pilot implemented across phases | See PROGRESS.md for phase-by-phase evidence, adaptations and remaining production gates             |
+| Backend/auth provider                       | Local PostgreSQL/API selected and tested          | Loopback Docker PostgreSQL; local authenticated API; no paid or public service provisioned          |
+| Production deployment                       | Unchanged by Phase 0                              | Manual workflow retained; no workflow dispatched or Pages setting modified                          |
+| Real farm data / paid services              | Out of scope for initial experiment               | Synthetic fixtures only; approval needed before connecting outside systems                          |
 
 Validation commands, run from `/workspace/waterturn`:
 
@@ -26,7 +26,7 @@ Playwright uses system Chromium in this environment. This is current-instance re
 
 ## Best first implementation milestone: M1A, local FarmOS shell and daily work
 
-**Proposed; awaiting agreement.** Keep the initial experiment single-user, on-device, and synthetic. This is a bounded subset of Phase 1, not an attempt to implement every proposed module.
+**Agreed and implemented in the development pilot.** Keep the initial experiment single-user, on-device, and synthetic. This is a bounded subset of Phase 1, not an attempt to implement every proposed module.
 
 Concrete outcome: open a unified farm home, create a farm/property, reuse an existing field, create a task linked to that field, mark it complete, see it in the activity history, and continue the existing irrigation workflow with its old records intact.
 
@@ -44,35 +44,35 @@ Explicitly outside M1A: interactive maps, crop season planning, equipment regist
 
 Acceptance checklist:
 
-- [ ] Existing version-1 farm fixture upgrades without ID, timestamp, pause, duration, archive, label, or note loss.
-- [ ] Failed migration/save/import leaves the existing farm unchanged; original backup remains recoverable.
-- [ ] Version-2 import rejects invalid references; roundtrip includes tasks/activity and original irrigation records.
-- [ ] A task can be created, linked to a field/property, edited, assigned a local worker label, completed, and filtered by due date/status.
-- [ ] Task/activity changes commit together; retry does not duplicate a completion entry.
-- [ ] New irrigation start/move/stop remains manual, atomic where required, and correctly linked to activity history.
-- [ ] Existing regression tests pass; add migration fixtures, task rules, repository failure tests and a browser farm/task/irrigation/backup/offline workflow.
-- [ ] Dashboard and module navigation work at phone and desktop sizes with keyboard and labeled large controls.
-- [ ] UI says “Saved on this device”; it makes no role, sync, durable cloud backup, or private multi-user claim.
+- [x] Existing version-1 farm fixture upgrades without ID, timestamp, pause, duration, archive, label, or note loss.
+- [x] Failed migration/save/import leaves the existing farm unchanged; original backup remains recoverable.
+- [x] Version-2 import rejects invalid references; roundtrip includes tasks/activity and original irrigation records.
+- [x] A task can be created, linked to a field/property, edited, assigned a local worker label, completed, and filtered by due date/status.
+- [x] Task/activity changes commit together; retry does not duplicate a completion entry.
+- [x] New irrigation start/move/stop remains manual, atomic where required, and correctly linked to activity history.
+- [x] Existing regression tests pass; add migration fixtures, task rules, repository failure tests and a browser farm/task/irrigation/backup/offline workflow.
+- [x] Dashboard and module navigation work at phone and desktop sizes with keyboard and labeled large controls.
+- [x] UI says “Saved on this device”; it makes no role, sync, durable cloud backup, or private multi-user claim.
 
 Definition of done: the checklist is satisfied, test counts/results and screenshots are recorded, changes are reviewable, and no real data or production deployment is introduced. Agreement to M1A authorizes this bounded implementation, not the entire platform.
 
 ## Incremental releases and dependency gates
 
-| Supplied phase / milestone | Deliverable | Prerequisites and key acceptance evidence |
-| --- | --- | --- |
-| Phase 1 / M1A | Shell, properties/shared fields, daily tasks/activity, local migration/backups | Agreed scope above; all irrigation regressions and old-backup upgrade tests |
-| Phase 1 / M1B | Equipment register, meter entries, basic inventory items/lots/locations and immutable quantity movements | M1A; unit-safe quantities, no silent negative balances, FIFO proposal reviewed, transfer/adjustment and backup tests; cost numbers remain labeled estimates until finance is released |
+| Supplied phase / milestone | Deliverable                                                                                                                                 | Prerequisites and key acceptance evidence                                                                                                                                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Phase 1 / M1A              | Shell, properties/shared fields, daily tasks/activity, local migration/backups                                                              | Agreed scope above; all irrigation regressions and old-backup upgrade tests                                                                                                                                                                                  |
+| Phase 1 / M1B              | Equipment register, meter entries, basic inventory items/lots/locations and immutable quantity movements                                    | M1A; unit-safe quantities, no silent negative balances, FIFO proposal reviewed, transfer/adjustment and backup tests; cost numbers remain labeled estimates until finance is released                                                                        |
 | Phase 1 security gate / S1 | Chosen PostgreSQL/API/auth pilot, organization membership, backend permissions, backup/restore, versioned migration and staged local import | Separate decision before private/multi-user access; two-tenant direct-API tests, column/document scopes, session revocation, audit and restore evidence. Can run alongside later synthetic module work, but cannot be skipped by adding employees to the UI. |
-| Phase 2 / M2A | Crop library, crop seasons/perennial stands, fieldwork/labor/equipment-use records, rotation history | Shared fields/assets/tasks; validated rates/units, dates and bulk-entry tests; legacy field crop labels preserved rather than guessed into history |
-| Phase 2 / M2B | Harvest loads/cuttings, inventory additions, planting/chemical forms, initial field cost references | M2A + inventory; idempotent harvest-to-inventory transaction, quantity/moisture assumptions, configurable application record requirements; no claim of regulatory completeness |
-| Phase 3 / M3A | Locations/groups/animals, identity, membership movements, reproduction/calving/weaning, health/withdrawal records, weights | Stable tenant/entity/reference model; individual vs headcount reconciliation, ADG date/unit tests, treatment visibility, no automatic slaughter-clearance declaration; CSV staging/preview |
-| Phase 3 / M3B | Rations, feed deliveries/lot withdrawals, sales and basic performance | M3A + inventory; as-fed/dry-matter validation, headcount snapshots, feeding atomicity and cost references; no nutrition optimization claims |
-| Phase 4 / M4 | Maintenance by date/hours/mileage, service/repair/downtime, work-order integration | M1B; meter correction rules, interval tests, overdue scheduling and failure recovery; cost allocations reference canonical expense sources |
-| Phase 5 / M5A | Balanced operational ledger, budgets, allocation policies, inventory valuation and internal transfers | Accounting policy review, decimal and currency rules, chart of accounts, cost-layer migration; crop-to-feed reconciliation and duplicate-posting prevention |
-| Phase 5 / M5B | Enterprise reports, cash/accrual distinction, crop/cattle closeouts, breakevens and scenarios, optional beef processing/customer balances | M5A + crop/cattle records; zero-denominator tests, cost/revenue reconciliation, explicit estimated/actual assumptions and period inventory; scenarios cannot mutate actuals |
-| Phase 6 / M6A | Optional GeoJSON boundaries, maps/overlays and private documents | Reviewed data sharing/permissions; manual field entry remains available; no paid imagery requirement, geometry validation, field-area assumptions, private attachment policy/download tests |
-| Phase 6 / M6B | Multi-device offline outbox/sync/conflict resolution, scoped reports and exports, optional weather | S1 + stable command model; retries/revocations/deletions, old-client compatibility, concurrent source starts/inventory consumption, conflict UI and restore drills |
-| Phase 7 / M7 | Optional AI/integrations/automation | Separate opt-in and cost/data-sharing review; least-privilege access, provenance, explicit confirmation before writes, no automatic gate control or unsupported agronomic claims |
+| Phase 2 / M2A              | Crop library, crop seasons/perennial stands, fieldwork/labor/equipment-use records, rotation history                                        | Shared fields/assets/tasks; validated rates/units, dates and bulk-entry tests; legacy field crop labels preserved rather than guessed into history                                                                                                           |
+| Phase 2 / M2B              | Harvest loads/cuttings, inventory additions, planting/chemical forms, initial field cost references                                         | M2A + inventory; idempotent harvest-to-inventory transaction, quantity/moisture assumptions, configurable application record requirements; no claim of regulatory completeness                                                                               |
+| Phase 3 / M3A              | Locations/groups/animals, identity, membership movements, reproduction/calving/weaning, health/withdrawal records, weights                  | Stable tenant/entity/reference model; individual vs headcount reconciliation, ADG date/unit tests, treatment visibility, no automatic slaughter-clearance declaration; CSV staging/preview                                                                   |
+| Phase 3 / M3B              | Rations, feed deliveries/lot withdrawals, sales and basic performance                                                                       | M3A + inventory; as-fed/dry-matter validation, headcount snapshots, feeding atomicity and cost references; no nutrition optimization claims                                                                                                                  |
+| Phase 4 / M4               | Maintenance by date/hours/mileage, service/repair/downtime, work-order integration                                                          | M1B; meter correction rules, interval tests, overdue scheduling and failure recovery; cost allocations reference canonical expense sources                                                                                                                   |
+| Phase 5 / M5A              | Balanced operational ledger, budgets, allocation policies, inventory valuation and internal transfers                                       | Accounting policy review, decimal and currency rules, chart of accounts, cost-layer migration; crop-to-feed reconciliation and duplicate-posting prevention                                                                                                  |
+| Phase 5 / M5B              | Enterprise reports, cash/accrual distinction, crop/cattle closeouts, breakevens and scenarios, optional beef processing/customer balances   | M5A + crop/cattle records; zero-denominator tests, cost/revenue reconciliation, explicit estimated/actual assumptions and period inventory; scenarios cannot mutate actuals                                                                                  |
+| Phase 6 / M6A              | Optional GeoJSON boundaries, maps/overlays and private documents                                                                            | Reviewed data sharing/permissions; manual field entry remains available; no paid imagery requirement, geometry validation, field-area assumptions, private attachment policy/download tests                                                                  |
+| Phase 6 / M6B              | Multi-device offline outbox/sync/conflict resolution, scoped reports and exports, optional weather                                          | S1 + stable command model; retries/revocations/deletions, old-client compatibility, concurrent source starts/inventory consumption, conflict UI and restore drills                                                                                           |
+| Phase 7 / M7               | Optional AI/integrations/automation                                                                                                         | Separate opt-in and cost/data-sharing review; least-privilege access, provenance, explicit confirmation before writes, no automatic gate control or unsupported agronomic claims                                                                             |
 
 A phase may contain multiple PRs; the numbering expresses dependencies, not a commitment to launch all features on a fixed date. Do not begin financial production reporting merely because a module can display an estimated cost.
 
@@ -98,9 +98,13 @@ Required integrated financial scenarios at the relevant release:
 
 ## Decisions to revisit before implementation
 
-- Agree to M1A as the first bounded milestone, or prioritize a private backend pilot first. Recommendation: M1A with synthetic data.
+- Resolved: M1A and continued development through Phase 7 were authorized; the selected backend is local PostgreSQL/API with no paid services.
 - At S1: hosted database/auth option, operating region, owner/operator responsibilities, backup retention/recovery objective, and acceptable monthly budget.
 - Before accounting: fiscal/crop-year policy, valuation and cost recognition, overhead allocation, currency/units and professional review of financial definitions.
 - Before sync: which records may be cached on shared devices and which conflicts require owner review.
 
-No credentials, personal account access, paid service, or real farm information is needed to agree to or build M1A.
+No personal account access, paid service, or real farm information was required. Local database credentials are randomly generated into ignored files. See PROGRESS.md for the latest delivered scope and release gates.
+
+## Implementation record
+
+The original milestones above remain the design contract. The current branch implements a local pilot, with the exact evidence and remaining limits recorded in [PROGRESS.md](PROGRESS.md). No item in this document certifies the complete long-term product brief or a production private-data installation. Irrigation screens remain in the existing app component to reduce behavioral regression; the new operational domain is split by crop, cattle, inventory, asset, ledger, validation and shared-model ownership. Further source extraction can happen without changing records.

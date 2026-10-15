@@ -181,8 +181,8 @@ describe("storage and backups", () => {
   it("persists, roundtrips backups, and rejects invalid replacement without losing records", async () => {
     await db.state.clear();
     startSession(d, input());
-    await save(d);
-    expect(await load()).toEqual(d);
+    const saved = await save(d);
+    expect(await load()).toEqual(saved);
     const restored = JSON.parse(JSON.stringify(d));
     validate(restored);
     await save(restored);

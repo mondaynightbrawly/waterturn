@@ -1,6 +1,6 @@
 # WaterTurn FarmOS architecture
 
-Status: proposed, not implemented. Living design; update decisions and migration contracts in the same review as implementation. Assessment baseline: `d57dcfd`, October 15, 2026. Preserve the existing irrigation module.
+Status: long-term design, with a local pilot now implemented; see PROGRESS.md for exact delivery evidence and deviations. Living design; update decisions and migration contracts in the same review as implementation. Assessment baseline: `d57dcfd`, October 15, 2026. Preserve the existing irrigation module.
 
 ## Decisions and system boundaries
 
@@ -40,78 +40,78 @@ This is a design specification, not executable SQL or a completed migration. Tab
 
 Every tenant parent has `UNIQUE(organization_id,id)`. Every tenant foreign key includes organization ID, e.g. `(organization_id,field_id) REFERENCES fields(organization_id,id)`. Index foreign keys and `(organization_id,status,due_at)` queries. No cross-organization references are permitted, including those in link tables.
 
-| Domain / table | Important columns and relationships |
-| --- | --- |
-| `organizations` | id, name, timezone, default_currency, status; owning tenant |
-| `users` | identity subject and display name; use auth provider IDs, never app plaintext passwords |
-| `organization_memberships` | organization_id, user_id, role, status; unique membership; managed only by authorized admins |
-| `membership_permissions` | membership_id, permission_code, scope; allow limited financial scopes without copying roles into records |
-| `workers` | organization_id, optional membership_id, display_name, worker_type, active; employees/contractors can be recorded without having a login |
-| `properties` | organization_id, name, property_type, acreage, notes |
-| `locations` | property_id, kind (pasture, pen, lot, barn, bin, pit, shop, tank), name; optional geometry; also inventory/cattle locations |
-| `fields` | property_id, name, acreage, irrigated_acreage, soil_notes, default_source_id, irrigation_method, notes; retain existing field identity |
-| `field_boundaries` | field_id, revision, geometry, area, area_unit, source, effective_from; optional validated GeoJSON initially, PostGIS later |
-| `enterprises` | kind (crop/cattle/other), name, reporting_year, currency; crop/cattle detail tables reference this shared financial dimension |
-| `crop_types` | name, intended_use, default_quantity_unit, perennial flag; configurable library |
-| `crop_stands` | field_id, crop_type_id, establishment_date, termination_date; supports multi-year alfalfa/grass stands |
-| `crop_seasons` | field_id, crop_type_id, stand_id optional, enterprise_id, year, variety, end_use, planted_acres, planting_date, seeding_rate/unit, target_yield/unit, expected_harvest_date |
-| `rotation_plans` | field_id, year, crop_type_id, scenario_id, status; future plans separate from actual crop seasons |
-| `water_sources` | name, type, max_concurrent_sets, notes; retain existing source identity |
-| `irrigation_sets` | field_id, name, sequence_order, acreage, duration_minutes, source_override_id, archived_at |
-| `irrigation_sessions` | field_id, set_id, source_id, operator_worker_id optional, planned_start/end, actual_start/end, target_minutes, status, override flag/reason, snapshot labels |
-| `irrigation_pauses` | session_id, start_at, end_at; ordered nonoverlapping intervals |
-| `water_measurements` | session_id/location_id, timestamp, quantity/unit or flow/unit, method, measured_or_estimated, evidence, uncertainty notes; volume derived only with compatible measurements |
-| `water_right_records` | property_id, company_contact_id, reference, shares/unit, notes; recordkeeping only, not legal adjudication |
-| `water_right_fields` | right_record_id, field_id; unique pair |
-| `assets` | property_id/location_id, category, asset_number, name, make, model, year, serial, acquired_date, purchase_cost/currency, condition, operational_status |
-| `irrigation_assets` | asset_id, source_id optional, infrastructure_type; reuse asset register rather than duplicate pumps/headgates |
-| `meter_readings` | asset_id, observed_at, meter_kind (hours/mileage), value/unit, correction_reference; reject unexplained decreasing readings |
-| `maintenance_plans` | asset_id, title, calendar_interval, meter_interval/unit, seasonal_window, last_service_reference |
-| `service_events` | asset_id, maintenance_plan_id optional, work_order_id optional, performed_at, symptoms, diagnosis, downtime, notes; costs reference canonical postings |
-| `contacts` | vendor/customer/veterinarian/etc. types, display_name, optional contact details; restricted as appropriate |
-| `work_orders` | title, description, priority, status, due_at, estimated_minutes, recurrence_rule/template_id optional, completion_notes |
-| `work_order_assignments` | work_order_id, worker_id, assignment_role; assignee permissions evaluated server-side |
-| `work_order_links` | work_order_id and exactly one typed field_id/group_id/asset_id; enforce references with CHECK and composite FKs |
-| `labor_entries` | activity_id/work_order_id, worker_id, started_at, ended_at, minutes, rate/currency and rate-source snapshot; labor costs restricted |
-| `fieldwork_events` | field_id, crop_season_id, activity_type, started_at, ended_at, acres, notes; bulk command creates linked per-field entries |
-| `equipment_usage` | activity_id, asset_id, hours, fuel_quantity/unit, meter_reading_id, cost_posting_id optional |
-| `fieldwork_inputs` | fieldwork_event_id, inventory_lot_id, quantity/unit, application_rate/unit, inventory_transaction_id |
-| `chemical_applications` | fieldwork_event_id, product, EPA registration, treated_acres, crop/site, applicator_worker_id, certification reference, application conditions, jurisdiction/template_version |
-| `record_requirement_templates` | jurisdiction, record_type, version, required_fields, retention_rule; configurable, reviewed rules; not a claim of universal compliance |
-| `harvest_loads` | crop_season_id, fieldwork_event_id, cutting_number optional, harvested_at, quantity/unit, moisture, grade, destination_location_id, inventory_transaction_id, loss_quantity/unit |
-| `livestock_groups` | enterprise_id, name, class, management_method (individual/headcount), status; avoid double-counting represented animals |
-| `animals` | enterprise_id, tag, EID optional, breed, sex, born_on, birth_weight/unit, sire_id/dam_id optional, ownership, acquisition date/cost, current_status |
-| `animal_group_memberships` | animal_id, group_id, valid_from/to; preserve movement history and prohibit overlapping active membership where required |
-| `livestock_movements` | animal_id or group_id, from/to_location_id, occurred_at, head_count, reason, activity_id; exactly one subject |
-| `group_headcount_events` | group_id, occurred_at, quantity_delta, reason, source_reference; headcount-managed groups only |
-| `breeding_events` | animal_id/group_id, type (exposure, AI, pregnancy_check), event_date, sire_id optional, result, expected_calving_date; references validated |
-| `calving_events` | dam_id, calf_id, calved_at, difficulty, birth_weight/unit, notes |
-| `weaning_events` | animal_id/group_id, event_date, head_count, weight/unit, notes |
-| `animal_weights` | animal_id or group_id, observed_at, quantity/unit, head_count if group, measurement_method |
-| `treatments` | animal_id or group_id, product/medication, dosage/unit, route, treated_at, worker_id, veterinarian_contact_id, withdrawal_until, verified_by, activity_id; no automatic safe-for-slaughter declaration |
-| `rations` / `ration_ingredients` | group/class, revision; ingredient item_id, quantity/unit, basis (as-fed/dry-matter), dry_matter_fraction when known |
-| `feed_deliveries` | group_id, fed_at, ration_revision_id, head_count_snapshot, activity_id |
-| `feed_delivery_lines` | delivery_id, lot_id, quantity/unit, dry_matter_fraction optional, inventory_transaction_id, valuation_reference |
-| `livestock_sales` / `livestock_sale_lines` | buyer, date, animal/group references, head_count, weight/unit, price/basis, commission, freight, shrink, financial_transaction_id |
-| `beef_orders` / `processing_events` | customer_id, animal_id, fraction, deposit/balance references, processor_id, appointment, hanging weight, yield, customer_pays_processor; later optional module |
-| `inventory_items` | category, name, base_unit, low_stock_threshold, valuation_method; distinguish units by physical dimension |
-| `inventory_lots` | item_id, origin (purchased/produced), harvest/purchase reference, received_date, expiry_date, moisture/quality, cost_layer_reference |
-| `inventory_transactions` | activity_id, type, occurred_at, status, command_id; immutable after posting; correction by reversal |
-| `inventory_lines` | transaction_id, item_id, lot_id, location_id, signed_quantity, unit, unit_cost_snapshot, currency, cost_layer_id; paired movements for internal location transfer |
-| `inventory_cost_layers` | lot_id, originating_posting_id, quantity, remaining_quantity, unit_cost, valuation_method/version; FIFO by lot initially |
-| `financial_transactions` | occurred_on, description, category_id, contact_id, kind, currency, payment_status, source_activity_id; separates cash events from operational cost recognition |
-| `financial_postings` | transaction_id, account_id, debit/credit decimal, currency, enterprise/field/group/asset dimensions; balanced journal, immutable when posted |
-| `cost_allocations` | source_posting_id, destination dimension, amount, basis (acres/hours/head-days/manual), basis_quantity, rule_version; totals cannot exceed source cost |
-| `budgets` / `budget_lines` | enterprise_id, year, version, category_id, planned_amount, quantity/unit, assumption references |
-| `scenarios` / `scenario_assumptions` | base_snapshot_id, name, price/yield/cost overrides; modeled outputs never alter actual postings |
-| `activities` | type, occurred_at, actor_worker_id, command_id, correlation_id, summary, recorded_at; immutable Farm Activity Ledger entry |
-| `activity_links` | activity_id and exactly one typed field/season/animal/group/asset/task/inventory/financial record FK; no unchecked polymorphic IDs |
-| `attachments` / `attachment_links` | private object key, content type/size/hash, owner/uploader; typed parent references with permission checks; never public file URLs |
-| `audit_events` | actor_user_id, organization_id, command_id, action, affected table/id, prior/new version, timestamp, minimal redacted changes; append-only via trusted code |
-| `legacy_id_maps` | import_batch_id, entity_type, legacy_id, new_id; retain original string IDs and provenance |
-| `import_batches` | schema_version, input_hash, tenant, record counts, validation/reconciliation results, status, started/completed_at |
-| `command_receipts` | organization_id, command_id, actor_id, request_hash, result_reference; unique ID supports safe retries without duplicate posting |
-| `sync_changes` / `record_tombstones` | server cursor, entity/version, committed_at, delete/archive markers; scoped change feed, added only with synchronization |
+| Domain / table                             | Important columns and relationships                                                                                                                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `organizations`                            | id, name, timezone, default_currency, status; owning tenant                                                                                                                                            |
+| `users`                                    | identity subject and display name; use auth provider IDs, never app plaintext passwords                                                                                                                |
+| `organization_memberships`                 | organization_id, user_id, role, status; unique membership; managed only by authorized admins                                                                                                           |
+| `membership_permissions`                   | membership_id, permission_code, scope; allow limited financial scopes without copying roles into records                                                                                               |
+| `workers`                                  | organization_id, optional membership_id, display_name, worker_type, active; employees/contractors can be recorded without having a login                                                               |
+| `properties`                               | organization_id, name, property_type, acreage, notes                                                                                                                                                   |
+| `locations`                                | property_id, kind (pasture, pen, lot, barn, bin, pit, shop, tank), name; optional geometry; also inventory/cattle locations                                                                            |
+| `fields`                                   | property_id, name, acreage, irrigated_acreage, soil_notes, default_source_id, irrigation_method, notes; retain existing field identity                                                                 |
+| `field_boundaries`                         | field_id, revision, geometry, area, area_unit, source, effective_from; optional validated GeoJSON initially, PostGIS later                                                                             |
+| `enterprises`                              | kind (crop/cattle/other), name, reporting_year, currency; crop/cattle detail tables reference this shared financial dimension                                                                          |
+| `crop_types`                               | name, intended_use, default_quantity_unit, perennial flag; configurable library                                                                                                                        |
+| `crop_stands`                              | field_id, crop_type_id, establishment_date, termination_date; supports multi-year alfalfa/grass stands                                                                                                 |
+| `crop_seasons`                             | field_id, crop_type_id, stand_id optional, enterprise_id, year, variety, end_use, planted_acres, planting_date, seeding_rate/unit, target_yield/unit, expected_harvest_date                            |
+| `rotation_plans`                           | field_id, year, crop_type_id, scenario_id, status; future plans separate from actual crop seasons                                                                                                      |
+| `water_sources`                            | name, type, max_concurrent_sets, notes; retain existing source identity                                                                                                                                |
+| `irrigation_sets`                          | field_id, name, sequence_order, acreage, duration_minutes, source_override_id, archived_at                                                                                                             |
+| `irrigation_sessions`                      | field_id, set_id, source_id, operator_worker_id optional, planned_start/end, actual_start/end, target_minutes, status, override flag/reason, snapshot labels                                           |
+| `irrigation_pauses`                        | session_id, start_at, end_at; ordered nonoverlapping intervals                                                                                                                                         |
+| `water_measurements`                       | session_id/location_id, timestamp, quantity/unit or flow/unit, method, measured_or_estimated, evidence, uncertainty notes; volume derived only with compatible measurements                            |
+| `water_right_records`                      | property_id, company_contact_id, reference, shares/unit, notes; recordkeeping only, not legal adjudication                                                                                             |
+| `water_right_fields`                       | right_record_id, field_id; unique pair                                                                                                                                                                 |
+| `assets`                                   | property_id/location_id, category, asset_number, name, make, model, year, serial, acquired_date, purchase_cost/currency, condition, operational_status                                                 |
+| `irrigation_assets`                        | asset_id, source_id optional, infrastructure_type; reuse asset register rather than duplicate pumps/headgates                                                                                          |
+| `meter_readings`                           | asset_id, observed_at, meter_kind (hours/mileage), value/unit, correction_reference; reject unexplained decreasing readings                                                                            |
+| `maintenance_plans`                        | asset_id, title, calendar_interval, meter_interval/unit, seasonal_window, last_service_reference                                                                                                       |
+| `service_events`                           | asset_id, maintenance_plan_id optional, work_order_id optional, performed_at, symptoms, diagnosis, downtime, notes; costs reference canonical postings                                                 |
+| `contacts`                                 | vendor/customer/veterinarian/etc. types, display_name, optional contact details; restricted as appropriate                                                                                             |
+| `work_orders`                              | title, description, priority, status, due_at, estimated_minutes, recurrence_rule/template_id optional, completion_notes                                                                                |
+| `work_order_assignments`                   | work_order_id, worker_id, assignment_role; assignee permissions evaluated server-side                                                                                                                  |
+| `work_order_links`                         | work_order_id and exactly one typed field_id/group_id/asset_id; enforce references with CHECK and composite FKs                                                                                        |
+| `labor_entries`                            | activity_id/work_order_id, worker_id, started_at, ended_at, minutes, rate/currency and rate-source snapshot; labor costs restricted                                                                    |
+| `fieldwork_events`                         | field_id, crop_season_id, activity_type, started_at, ended_at, acres, notes; bulk command creates linked per-field entries                                                                             |
+| `equipment_usage`                          | activity_id, asset_id, hours, fuel_quantity/unit, meter_reading_id, cost_posting_id optional                                                                                                           |
+| `fieldwork_inputs`                         | fieldwork_event_id, inventory_lot_id, quantity/unit, application_rate/unit, inventory_transaction_id                                                                                                   |
+| `chemical_applications`                    | fieldwork_event_id, product, EPA registration, treated_acres, crop/site, applicator_worker_id, certification reference, application conditions, jurisdiction/template_version                          |
+| `record_requirement_templates`             | jurisdiction, record_type, version, required_fields, retention_rule; configurable, reviewed rules; not a claim of universal compliance                                                                 |
+| `harvest_loads`                            | crop_season_id, fieldwork_event_id, cutting_number optional, harvested_at, quantity/unit, moisture, grade, destination_location_id, inventory_transaction_id, loss_quantity/unit                       |
+| `livestock_groups`                         | enterprise_id, name, class, management_method (individual/headcount), status; avoid double-counting represented animals                                                                                |
+| `animals`                                  | enterprise_id, tag, EID optional, breed, sex, born_on, birth_weight/unit, sire_id/dam_id optional, ownership, acquisition date/cost, current_status                                                    |
+| `animal_group_memberships`                 | animal_id, group_id, valid_from/to; preserve movement history and prohibit overlapping active membership where required                                                                                |
+| `livestock_movements`                      | animal_id or group_id, from/to_location_id, occurred_at, head_count, reason, activity_id; exactly one subject                                                                                          |
+| `group_headcount_events`                   | group_id, occurred_at, quantity_delta, reason, source_reference; headcount-managed groups only                                                                                                         |
+| `breeding_events`                          | animal_id/group_id, type (exposure, AI, pregnancy_check), event_date, sire_id optional, result, expected_calving_date; references validated                                                            |
+| `calving_events`                           | dam_id, calf_id, calved_at, difficulty, birth_weight/unit, notes                                                                                                                                       |
+| `weaning_events`                           | animal_id/group_id, event_date, head_count, weight/unit, notes                                                                                                                                         |
+| `animal_weights`                           | animal_id or group_id, observed_at, quantity/unit, head_count if group, measurement_method                                                                                                             |
+| `treatments`                               | animal_id or group_id, product/medication, dosage/unit, route, treated_at, worker_id, veterinarian_contact_id, withdrawal_until, verified_by, activity_id; no automatic safe-for-slaughter declaration |
+| `rations` / `ration_ingredients`           | group/class, revision; ingredient item_id, quantity/unit, basis (as-fed/dry-matter), dry_matter_fraction when known                                                                                    |
+| `feed_deliveries`                          | group_id, fed_at, ration_revision_id, head_count_snapshot, activity_id                                                                                                                                 |
+| `feed_delivery_lines`                      | delivery_id, lot_id, quantity/unit, dry_matter_fraction optional, inventory_transaction_id, valuation_reference                                                                                        |
+| `livestock_sales` / `livestock_sale_lines` | buyer, date, animal/group references, head_count, weight/unit, price/basis, commission, freight, shrink, financial_transaction_id                                                                      |
+| `beef_orders` / `processing_events`        | customer_id, animal_id, fraction, deposit/balance references, processor_id, appointment, hanging weight, yield, customer_pays_processor; later optional module                                         |
+| `inventory_items`                          | category, name, base_unit, low_stock_threshold, valuation_method; distinguish units by physical dimension                                                                                              |
+| `inventory_lots`                           | item_id, origin (purchased/produced), harvest/purchase reference, received_date, expiry_date, moisture/quality, cost_layer_reference                                                                   |
+| `inventory_transactions`                   | activity_id, type, occurred_at, status, command_id; immutable after posting; correction by reversal                                                                                                    |
+| `inventory_lines`                          | transaction_id, item_id, lot_id, location_id, signed_quantity, unit, unit_cost_snapshot, currency, cost_layer_id; paired movements for internal location transfer                                      |
+| `inventory_cost_layers`                    | lot_id, originating_posting_id, quantity, remaining_quantity, unit_cost, valuation_method/version; FIFO by lot initially                                                                               |
+| `financial_transactions`                   | occurred_on, description, category_id, contact_id, kind, currency, payment_status, source_activity_id; separates cash events from operational cost recognition                                         |
+| `financial_postings`                       | transaction_id, account_id, debit/credit decimal, currency, enterprise/field/group/asset dimensions; balanced journal, immutable when posted                                                           |
+| `cost_allocations`                         | source_posting_id, destination dimension, amount, basis (acres/hours/head-days/manual), basis_quantity, rule_version; totals cannot exceed source cost                                                 |
+| `budgets` / `budget_lines`                 | enterprise_id, year, version, category_id, planned_amount, quantity/unit, assumption references                                                                                                        |
+| `scenarios` / `scenario_assumptions`       | base_snapshot_id, name, price/yield/cost overrides; modeled outputs never alter actual postings                                                                                                        |
+| `activities`                               | type, occurred_at, actor_worker_id, command_id, correlation_id, summary, recorded_at; immutable Farm Activity Ledger entry                                                                             |
+| `activity_links`                           | activity_id and exactly one typed field/season/animal/group/asset/task/inventory/financial record FK; no unchecked polymorphic IDs                                                                     |
+| `attachments` / `attachment_links`         | private object key, content type/size/hash, owner/uploader; typed parent references with permission checks; never public file URLs                                                                     |
+| `audit_events`                             | actor_user_id, organization_id, command_id, action, affected table/id, prior/new version, timestamp, minimal redacted changes; append-only via trusted code                                            |
+| `legacy_id_maps`                           | import_batch_id, entity_type, legacy_id, new_id; retain original string IDs and provenance                                                                                                             |
+| `import_batches`                           | schema_version, input_hash, tenant, record counts, validation/reconciliation results, status, started/completed_at                                                                                     |
+| `command_receipts`                         | organization_id, command_id, actor_id, request_hash, result_reference; unique ID supports safe retries without duplicate posting                                                                       |
+| `sync_changes` / `record_tombstones`       | server cursor, entity/version, committed_at, delete/archive markers; scoped change feed, added only with synchronization                                                                               |
 
 ## Relationship overview
 
@@ -173,13 +173,13 @@ Local demonstration mode has **no authentication or security roles**. An organiz
 
 Before private multi-user access, use a maintained authentication provider with secure sessions and PostgreSQL-backed authorization. Choose a deployment/auth path only after comparing the options below. Enforce permissions for list/search/read/write/export/attachments and command endpoints, not only navigation. JWT identity is verified server-side; organization membership is looked up and checked on each request. Never trust a client-supplied role or tenant claim alone. PostgreSQL RLS is defense in depth; application roles do not get BYPASSRLS/service-role credentials. Restrict function execution, fix security-definer search paths, and prevent owner-role membership escalation.
 
-| Role | Proposed server-enforced access |
-| --- | --- |
-| Owner/admin | Organization administration and all authorized business records; sensitive actions audited |
-| Manager | Operational modules; financial scopes explicitly granted, not automatically implied |
-| Employee/operator | Assigned tasks and necessary operational records; no default owner/financial/valuation/document access |
-| Accountant | Financial reporting/postings and necessary linked cost facts; no membership administration or gate/work dispatch |
-| Read-only | Explicit permitted report datasets only; no writes, no automatic access to every module |
+| Role              | Proposed server-enforced access                                                                                  |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Owner/admin       | Organization administration and all authorized business records; sensitive actions audited                       |
+| Manager           | Operational modules; financial scopes explicitly granted, not automatically implied                              |
+| Employee/operator | Assigned tasks and necessary operational records; no default owner/financial/valuation/document access           |
+| Accountant        | Financial reporting/postings and necessary linked cost facts; no membership administration or gate/work dispatch |
+| Read-only         | Explicit permitted report datasets only; no writes, no automatic access to every module                          |
 
 Financial rows, payroll/rates, acquisition/valuation amounts, contacts, and private attachments require permission-aware endpoints/views and exports. Row policies alone do not hide sensitive columns from an otherwise permitted employee. Use separate restricted tables or carefully scoped views/API projections. New tenants deny access by default.
 
@@ -200,12 +200,12 @@ Release security tests must use two organizations, all roles, unauthenticated/ex
 
 Estimates are planning ranges in USD per month, not verified vendor quotes or current plan guarantees. No services have been provisioned. Verify then-current terms, quotas, region, backup retention, egress, and commercial-use eligibility before choosing a provider.
 
-| Path | Suitability | Planning cost / tradeoffs |
-| --- | --- | --- |
-| Current Pages + local Dexie | Recommended synthetic single-device foundation | Hosting may remain $0 where the repository/account plan allows Pages. No database/auth bill. No durable shared data, remote roles, or sync. Optional domain often roughly $10–25/year. |
-| Pages frontend + managed PostgreSQL/auth/storage (e.g. Supabase) | Candidate for a controlled private multi-user pilot | Free tiers may support disposable synthetic trials, with limits/pausing and no assumed backup SLA. Budget roughly $25–75/month for a modest paid pilot plus possible storage/egress/backups. RLS, private buckets, and command transactions still require engineering. Auth/storage APIs increase migration work. |
-| Static frontend + small API + managed PostgreSQL + separate auth | Strong portability and explicit domain command layer | Rough planning $20–100+/month across API, database, auth, storage and backups at low usage. More integration/operations work; avoids tying domain code to a single data API. |
-| Self-hosted API/PostgreSQL/auth | Consider only with someone owning maintenance | A small VM may cost roughly $10–40/month before independent backups/monitoring and labor. Security updates, certificates, restore, availability, and on-call time can outweigh savings. |
+| Path                                                             | Suitability                                          | Planning cost / tradeoffs                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Current Pages + local Dexie                                      | Recommended synthetic single-device foundation       | Hosting may remain $0 where the repository/account plan allows Pages. No database/auth bill. No durable shared data, remote roles, or sync. Optional domain often roughly $10–25/year.                                                                                                                            |
+| Pages frontend + managed PostgreSQL/auth/storage (e.g. Supabase) | Candidate for a controlled private multi-user pilot  | Free tiers may support disposable synthetic trials, with limits/pausing and no assumed backup SLA. Budget roughly $25–75/month for a modest paid pilot plus possible storage/egress/backups. RLS, private buckets, and command transactions still require engineering. Auth/storage APIs increase migration work. |
+| Static frontend + small API + managed PostgreSQL + separate auth | Strong portability and explicit domain command layer | Rough planning $20–100+/month across API, database, auth, storage and backups at low usage. More integration/operations work; avoids tying domain code to a single data API.                                                                                                                                      |
+| Self-hosted API/PostgreSQL/auth                                  | Consider only with someone owning maintenance        | A small VM may cost roughly $10–40/month before independent backups/monitoring and labor. Security updates, certificates, restore, availability, and on-call time can outweigh savings.                                                                                                                           |
 
 Recommendation: stay on the free/local path for the first agreed milestone. At the backend gate, compare managed PostgreSQL/auth against an API-plus-managed-PostgreSQL pilot with real usage, recovery requirements, and operator capacity. PostgreSQL schema/exports and a domain-command boundary preserve portability. Do not add bank connections, external AI, weather providers, paid imagery, or employee invitations during this phase.
 
@@ -233,3 +233,13 @@ RECENT FARM ACTIVITY
 ```
 
 Never show fabricated financial totals, cattle counts, forecasts, or live weather. Not-configured modules show no-data/configuration guidance only when implemented. Current device settings remain device preferences; future farm timezone is explicit. Initial search includes fields, water sources, tasks, and irrigation references; cattle/equipment become searchable when those records exist. Widget ordering can be stored locally; role-based widget choices come only with real server permissions.
+
+## Local pilot implementation delta
+
+The user selected a no-paid-services local PostgreSQL/API setup. The frontend retains the original irrigation code and adds `src/farmos` modules. The operational domain is split under `src/farmos/modules/` into typed models, primitives, crops, cattle, inventory, assets, ledger and validation. IndexedDB physical schema version 3 stores the current version-2 farm document, legacy backups and explicit pending-sync metadata. It does not pretend to be secure multi-user browser storage.
+
+`db/migrations` implements organization-scoped entity JSONB records, composite relational links, canonical typed financial posting tables, balanced-journal constraints, authenticated memberships/scopes, hashed-password/session records, command receipts, immutable command audit and per-record version/hash audit. This is a transitional relational pilot, not a physical implementation of every logical table above. The API uses a non-superuser role without RLS bypass. API role checks control data projections; SQL tenant isolation is additional defense, not a substitute for those checks.
+
+Manual owner snapshots are explicit, revision-checked and idempotent. An explicit empty-destination import remaps organization ownership while retaining record IDs and timestamps. Nonempty organization merging is rejected. Assigned employee tasks and scoped accounting/read-only reports are served through the authenticated API. Offline per-record/multi-user merging, shared-device cache isolation, production identity recovery, MFA and hosting operations remain release gates before real private deployment.
+
+Default insights are deterministic and read-only. `integrations.ts` defines a provider-neutral, scope/destination/consent-gated context preparation boundary without network transport or credentials. No external AI, bank, weather or equipment service is connected.

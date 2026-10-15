@@ -1,3 +1,4 @@
+import { validateFarm, type FarmOS } from "./farmos/domain";
 type Metadata = {
   createdAt?: number;
   updatedAt?: number;
@@ -60,7 +61,8 @@ export type Settings = {
   notifications: boolean;
 };
 export type Data = {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
+  farm?: FarmOS;
   sources: Source[];
   fields: Field[];
   sets: SetRow[];
@@ -124,7 +126,9 @@ export function suggestion(sessions: Session[], setId: string) {
 export function validate(d: unknown): asserts d is Data {
   if (!d || typeof d !== "object") throw Error("Backup must be a JSON object.");
   const x = d as Data;
-  if (x.schemaVersion !== 1) throw Error("Unsupported backup version.");
+  if (![1, 2].includes(x.schemaVersion))
+    throw Error("Unsupported backup version.");
+
   for (const key of ["sources", "fields", "sets", "sessions"] as const) {
     if (!Array.isArray(x[key])) throw Error(`Missing ${key}.`);
     const ids = new Set();
@@ -249,6 +253,11 @@ export function validate(d: unknown): asserts d is Data {
       active.add(s.setId);
     }
   }
+  if (x.schemaVersion === 2) validateFarm(x.farm, x);
+  if (new TextEncoder().encode(JSON.stringify(x)).byteLength > 19000000)
+    throw Error(
+      "Farm data exceeds the 19 MB local backup limit. Remove attachments after saving a backup.",
+    );
 }
 export function conflicts(
   d: Data,
@@ -404,7 +413,7 @@ export function csv(d: Data) {
   const quote = (v: unknown) =>
     '"' +
     String(v ?? "")
-      .replace(/^[=+@-]/, "'$&")
+      .replace(/^\s*[=+@-]/, "'$&")
       .replaceAll('"', '""') +
     '"';
   return [
